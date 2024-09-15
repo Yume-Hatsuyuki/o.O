@@ -17,9 +17,9 @@ fi
 
 clear
 echo "##################################################"
-echo -e "#            ${red}Hysteria 2 一键部署脚本${no_color}             #"
-echo -e "#                 ${green}作者${no_color}: 梦初雪                   #"
-echo -e "#        ${blue}电报:https://t.me/dreamfirstsnow${no_color}        #"
+echo -e "#            ${red}Hysteria 2 一键部署脚本${no_color}               #"
+echo -e "#                  ${green}作者${no_color}: 梦初雪                   #"
+echo -e "#          ${blue}电报:https://t.me/Yume_Hatsuyuki${no_color}       #"
 echo "##################################################"
 
 # 获取 Linux 发行版信息
@@ -64,12 +64,6 @@ if [[ $(ip_get) == *":"* ]]; then
 
   # 执行下载的脚本
   bash menu.sh [option] [lisence/url/token]
-
-  # 检查 bash 命令是否成功执行
-  if [ $? -ne 0 ]; then
-      echo -e "${red}安装warp失败！${no_color}"
-      exit 1
-  fi
 fi
 
 # 将发送、接收两个缓冲区都设置为 16 MB
@@ -103,14 +97,21 @@ if [ -z "$user_port" ]; then
   user_port=$rand_port
 fi
 
+# 安装 iptables-persistent 包
+sudo apt-get install iptables-persistent -y
+
 # 使用 iptables 命令放行该端口的全部流量
 sudo iptables -A INPUT -p tcp --dport $user_port -j ACCEPT
 sudo iptables -A OUTPUT -p tcp --sport $user_port -j ACCEPT
 sudo iptables -A INPUT -p udp --dport $user_port -j ACCEPT
 sudo iptables -A OUTPUT -p udp --sport $user_port -j ACCEPT
 
-# 安装 iptables-persistent 包
-sudo apt-get install iptables-persistent -y
+#端口跳跃
+if [[ $(ip_get) == *":"* ]]; then
+  ip6tables -t nat -A PREROUTING -i eth0 -p udp --dport 40000:65535 -j DNAT --to-destination :user_port
+else
+  iptables -t nat -A PREROUTING -i eth0 -p udp --dport 40000:65535 -j DNAT --to-destination :user_port
+fi
 
 # 保存规则
 sudo bash -c "iptables-save > /etc/iptables.rules"
@@ -285,7 +286,7 @@ rules:
   - GEOIP,CN,DIRECT
   - MATCH,Proxy
 EOF
-  link="hysteria2://$password@[$(ip_get)]:$user_port/?insecure=1&sni=www.kali.org#Hysteria2"
+  link="hysteria2://$password@$(ip_get):$user_port/?insecure=1&sni=www.kali.org#Hysteria2"
 else
   # 使用acme申请的证书
 cat << EOF > /root/Hysteria2/Hysteria2-client.yaml
@@ -311,6 +312,8 @@ socks5:
 transport:
   udp:
     hopInterval: 30s 
+
+$domain:20000-50000 
 EOF
 cat <<EOF > /root/Hysteria2/clash-meta.yaml
 mixed-port: 7890
@@ -345,7 +348,7 @@ rules:
   - GEOIP,CN,DIRECT
   - MATCH,Proxy
 EOF
-  link="hysteria2://$password@[$domain]:$user_port/?insecure=0&sni=$domain#Hysteria2"
+  link="hysteria2://$password@$domain:$user_port/?insecure=0&sni=$domain#Hysteria2"
 fi
 
 # 打印分享链接
